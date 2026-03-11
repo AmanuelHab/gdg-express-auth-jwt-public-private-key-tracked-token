@@ -95,7 +95,7 @@ export const signIn = async (req, res, next) => {
     const { email, password } = req.body;
 
     if (!email || !password) {
-      const error = new Error("ful_name,email,password required");
+      const error = new Error("email,password required");
       error.statusCode = 400;
       throw error;
     }
@@ -106,12 +106,31 @@ export const signIn = async (req, res, next) => {
       throw error;
     }
 
+    // Check lockUp time
+    if (user.lockUp && user.lockUp > Date.now()){
+      const remainingMin = user.lockUp - Date.now();
+      const remainingMinutes = Math.ceil(remainingMin / (60000));
+      return res.status(403).json({
+        success: false, message: `Try again after ${remainingMinutes} minute(s).`
+      });
+    }
+
     const validPassword = await bcrypt.compare(password, user.password);
     if (!validPassword) {
+      user.failedLoginAttempts += 1
+      if (user.failedLoginAttempts >= 5){
+        user.failedLoginAttempts = 0;
+        user.lockUp = Date.now() + 10 * 60 * 1000;
+      }
+      await user.save();
+
       const error = new Error("Invalid credential");
       error.statusCode = 401;
       throw error;
     }
+    user.failedLoginAttempts = 0
+    user.lockUp = null;
+    await user.save();
 
     const access_token = jwt.sign(
       { user_id: user._id },

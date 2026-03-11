@@ -19,6 +19,14 @@ const userSchema = new mongoose.Schema({
     required: [true, "Password is required"],
     minLength:[8,"Password is not strong"]
   },
+  failedLoginAttempts: {
+    type: Number,
+    default: 0
+  },
+  lockUp: {
+    type: Date,
+    default: null
+  }
 });
 
 
